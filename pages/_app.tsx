@@ -20,7 +20,7 @@ import { useMemo } from 'react'
 require('@solana/wallet-adapter-react-ui/styles.css')
 
 function MyApp({ Component, pageProps }: AppProps) {
-  const network = 'devnet'
+  const network = 'mainnet-beta'
   const endpoint = web3.clusterApiUrl(network)
   const wallets = useMemo(
     () => [

@@ -1,12 +1,13 @@
 import Head from 'next/head'
 import * as web3 from '@solana/web3.js'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 
 function useSolanaAccount() {
   const [account, setAccount] = useState(null)
   const [transactions, setTransactions] = useState(null)
+  const [tokenList, setTokenList] = useState(null)
   const { connection } = useConnection()
   const { publicKey } = useWallet()
 
@@ -14,6 +15,7 @@ function useSolanaAccount() {
     if (publicKey) {
       let acc = await connection.getAccountInfo(publicKey)
       setAccount(acc)
+
       let transactions = await connection.getConfirmedSignaturesForAddress2(
         publicKey,
         {
@@ -21,25 +23,44 @@ function useSolanaAccount() {
         }
       )
       setTransactions(transactions)
+
+      let tokenList = await connection.getTokenAccountsByOwner(publicKey, {
+        programId: new web3.PublicKey(
+          'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+        ),
+      })
+      setTokenList(tokenList.value)
     }
   }, [publicKey, connection])
 
   useEffect(() => {
     if (publicKey) {
-      setInterval(init, 1000)
+      setInterval(init, 5000)
     }
   }, [init, publicKey])
 
-  return { account, transactions }
+  return { account, transactions, tokenList }
 }
 
 export default function Home() {
   const { connection } = useConnection()
   const { publicKey } = useWallet()
-  const { account, transactions } = useSolanaAccount()
+  const { account, transactions, tokenList } = useSolanaAccount()
 
   const [airdropProcessing, setAirdropProcessing] = useState(false)
   const [error, setError] = useState(false)
+
+  //   let tokenBalance = (pubkey) =>
+  //     connection.getTokenAccountBalance(pubkey).then(
+  //       function (successMessage) {
+  //         console.log(successMessage.value.uiAmount)
+  //         return successMessage.value.uiAmount
+  //       },
+  //       function (errorMessage) {
+  //         console.log(errorMessage)
+  //         return errorMessage
+  //       }
+  //     )
 
   const getAirdrop = useCallback(async () => {
     setError(false)
@@ -57,6 +78,8 @@ export default function Home() {
     setAirdropProcessing(false)
   }, [])
 
+  console.log(tokenList)
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black/90 py-2 text-gray-200">
       <Head>
@@ -65,9 +88,12 @@ export default function Home() {
       </Head>
 
       <main className="flex w-full flex-1 flex-col items-center justify-center px-20 text-center">
-        <h1 className="mb-24 text-6xl font-bold">
+        <h1 className="mb-12 text-6xl font-bold">
           Eclypse | SCORE Automated Resupply test page
         </h1>
+        <div className="mb-24">
+          <WalletMultiButton />
+        </div>
         {publicKey && (
           <>
             <div className="py-6">
@@ -101,7 +127,7 @@ export default function Home() {
               <h2 className="text-2xl font-bold">Transactions</h2>
               {transactions && (
                 <ul>
-                  {transactions.map((v, i, arr) => (
+                  {transactions.map((v, i) => (
                     <li key={'transaction-' + i}>
                       <p>
                         <strong>Signature : </strong>
@@ -117,9 +143,28 @@ export default function Home() {
                 </ul>
               )}
             </div>
+            <div className="text-left">
+              <h2 className="text-2xl font-bold">Tokens</h2>
+              {tokenList && (
+                <ul>
+                  {tokenList.map((v, i) => (
+                    <li key={'transaction-' + i}>
+                      <p>
+                        <strong>{i} : </strong>
+                        <a
+                          href={`https://solscan.io/token/${v.pubkey.toBase58()}`}
+                          target="_blank"
+                        >
+                          {v.pubkey.toBase58()}
+                        </a>
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </>
         )}
-        {!publicKey && <WalletMultiButton />}
       </main>
     </div>
   )
