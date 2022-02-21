@@ -3,11 +3,12 @@ import * as web3 from '@solana/web3.js'
 import { useCallback, useEffect, useState } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
+import { returnToken } from '../utils/tokenList'
 
 function useSolanaAccount() {
   const [account, setAccount] = useState(null)
   const [transactions, setTransactions] = useState(null)
-  const [tokenList, setTokenList] = useState(null)
+  const [walletTokenList, setWalletTokenList] = useState(null)
   const { connection } = useConnection()
   const { publicKey } = useWallet()
 
@@ -24,28 +25,31 @@ function useSolanaAccount() {
       )
       setTransactions(transactions)
 
-      let tokenList = await connection.getTokenAccountsByOwner(publicKey, {
-        programId: new web3.PublicKey(
-          'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
-        ),
-      })
-      setTokenList(tokenList.value)
+      let walletTokenList = await connection.getParsedTokenAccountsByOwner(
+        publicKey,
+        {
+          programId: new web3.PublicKey(
+            'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+          ),
+        }
+      )
+      setWalletTokenList(walletTokenList.value)
     }
   }, [publicKey, connection])
 
   useEffect(() => {
     if (publicKey) {
-      setInterval(init, 5000)
+      setInterval(init, 15000)
     }
   }, [init, publicKey])
 
-  return { account, transactions, tokenList }
+  return { account, transactions, walletTokenList }
 }
 
 export default function Home() {
   const { connection } = useConnection()
   const { publicKey } = useWallet()
-  const { account, transactions, tokenList } = useSolanaAccount()
+  const { account, transactions, walletTokenList } = useSolanaAccount()
 
   const [airdropProcessing, setAirdropProcessing] = useState(false)
   const [error, setError] = useState(false)
@@ -78,7 +82,7 @@ export default function Home() {
     setAirdropProcessing(false)
   }, [])
 
-  console.log(tokenList)
+  console.log(walletTokenList)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black/90 py-2 text-gray-200">
@@ -145,21 +149,37 @@ export default function Home() {
             </div>
             <div className="text-left">
               <h2 className="text-2xl font-bold">Tokens</h2>
-              {tokenList && (
+              {walletTokenList && (
                 <ul>
-                  {tokenList.map((v, i) => (
-                    <li key={'transaction-' + i}>
-                      <p>
-                        <strong>{i} : </strong>
-                        <a
-                          href={`https://solscan.io/token/${v.pubkey.toBase58()}`}
-                          target="_blank"
-                        >
-                          {v.pubkey.toBase58()}
-                        </a>
-                      </p>
-                    </li>
-                  ))}
+                  {walletTokenList.map((v, i) => {
+                    return (
+                      <li key={'transaction-' + i}>
+                        <p>
+                          <strong>
+                            {returnToken(v.account.data.parsed.info.mint) &&
+                              returnToken(v.account.data.parsed.info.mint)
+                                .symbol}{' '}
+                            :{' '}
+                          </strong>
+                          <a
+                            href={`https://solscan.io/token/${v.pubkey.toBase58()}`}
+                            target="_blank"
+                          >
+                            {
+                              v.account.data.parsed.info.tokenAmount
+                                .uiAmountString
+                            }{' '}
+                            {console.log(
+                              returnToken(v.account.data.parsed.info.mint)
+                            )}
+                            {returnToken(v.account.data.parsed.info.mint) &&
+                              returnToken(v.account.data.parsed.info.mint)
+                                .symbol}
+                          </a>
+                        </p>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>
