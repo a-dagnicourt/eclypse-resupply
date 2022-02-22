@@ -75,20 +75,20 @@ export default function Home() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black/90 py-2 text-gray-200">
       <Head>
-        <title>Eclypse | SCORE Automated Resupply test page</title>
+        <title>Eclypse | Solana Wallet test page</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="flex w-full flex-1 flex-col items-center justify-center px-20 text-center">
-        <h1 className="mb-12 text-6xl font-bold">
-          Eclypse | SCORE Automated Resupply test page
+      <main className="flex w-full flex-1 flex-col items-center justify-center space-y-5 px-20 text-center">
+        <h1 className="mb-16 text-6xl font-bold">
+          Eclypse | Solana Wallet test page
         </h1>
-        <div className="mb-24">
+        <div>
           <WalletMultiButton />
         </div>
         {publicKey && (
-          <>
-            <div className="py-6">
+          <div className="max-w-4xl space-y-5 text-center">
+            <div>
               <p>
                 <strong>Wallet Public Key</strong> :{' '}
                 <a
@@ -121,39 +121,39 @@ export default function Home() {
               )}
             </div>
             <div className="text-left">
-              <h2 className="text-2xl font-bold">Tokens</h2>
+              <h2 className="mb-5 text-2xl font-bold">Tokens</h2>
               {walletTokenList && (
-                <ul>
+                <ul className="space-y-2">
                   {walletTokenList.map((v, i) => {
+                    const token = returnToken(v.account.data.parsed.info.mint)
                     return (
-                      returnToken(v.account.data.parsed.info.mint) && (
+                      token && (
                         <li key={'transaction-' + i}>
-                          <p>
-                            <strong>
-                              {returnToken(v.account.data.parsed.info.mint) &&
-                                returnToken(v.account.data.parsed.info.mint)
-                                  .symbol}{' '}
-                              :{' '}
-                            </strong>
-                            <a
-                              href={`https://solscan.io/token/${v.pubkey.toBase58()}`}
-                              target="_blank"
-                            >
+                          <div className="flex">
+                            <div className="flex-1 truncate">
+                              <a
+                                href={`https://solscan.io/token/${token.address}`}
+                                target="_blank"
+                              >
+                                <strong>{token && token.name}</strong>
+                              </a>
+                            </div>
+                            <span className="mx-3">:</span>
+                            <div className="flex w-1/6 justify-between">
                               {
                                 v.account.data.parsed.info.tokenAmount
                                   .uiAmountString
-                              }{' '}
-                              {returnToken(v.account.data.parsed.info.mint) && (
+                              }
+                              {token && (
                                 <img
-                                  src={
-                                    returnToken(v.account.data.parsed.info.mint)
-                                      .logoURI
-                                  }
-                                  className="h-6"
+                                  src={token.logoURI}
+                                  className="ml-1 h-6 rounded-full"
+                                  alt={token.symbol}
+                                  title={token.symbol}
                                 />
                               )}
-                            </a>
-                          </p>
+                            </div>
+                          </div>
                         </li>
                       )
                     )
@@ -161,10 +161,11 @@ export default function Home() {
                 </ul>
               )}
             </div>
+
             <div className="text-left">
-              <h2 className="text-2xl font-bold">Transactions</h2>
+              <h2 className="mb-5 text-2xl font-bold">Transactions</h2>
               {transactions && (
-                <ul>
+                <ul className="space-y-2">
                   {transactions.map((v, i) => (
                     <li key={'transaction-' + i}>
                       <p>
@@ -181,7 +182,7 @@ export default function Home() {
                 </ul>
               )}
             </div>
-          </>
+          </div>
         )}
       </main>
     </div>

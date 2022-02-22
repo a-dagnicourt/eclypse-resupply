@@ -5,7 +5,7 @@ export let tokenList = []
 export async function getTokenList(){
   const _tokens = await new TokenListProvider().resolve()
   tokenList = _tokens.filterByClusterSlug('mainnet-beta').getList()
-  console.log(tokenList)
+//   console.log(tokenList)
 }
 
 export function returnToken(mintKey){
