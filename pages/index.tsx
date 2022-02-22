@@ -3,7 +3,7 @@ import * as web3 from '@solana/web3.js'
 import { useCallback, useEffect, useState } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import { returnToken } from '../utils/tokenList'
+import { getTokenList, returnToken } from '../utils/tokenList'
 
 function useSolanaAccount() {
   const [account, setAccount] = useState(null)
@@ -39,7 +39,9 @@ function useSolanaAccount() {
 
   useEffect(() => {
     if (publicKey) {
-      setInterval(init, 15000)
+      getTokenList()
+      init()
+      //   setInterval(init, 15000)
     }
   }, [init, publicKey])
 
@@ -53,18 +55,6 @@ export default function Home() {
 
   const [airdropProcessing, setAirdropProcessing] = useState(false)
   const [error, setError] = useState(false)
-
-  //   let tokenBalance = (pubkey) =>
-  //     connection.getTokenAccountBalance(pubkey).then(
-  //       function (successMessage) {
-  //         console.log(successMessage.value.uiAmount)
-  //         return successMessage.value.uiAmount
-  //       },
-  //       function (errorMessage) {
-  //         console.log(errorMessage)
-  //         return errorMessage
-  //       }
-  //     )
 
   const getAirdrop = useCallback(async () => {
     setError(false)
@@ -81,8 +71,6 @@ export default function Home() {
     }
     setAirdropProcessing(false)
   }, [])
-
-  console.log(walletTokenList)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black/90 py-2 text-gray-200">
@@ -116,16 +104,62 @@ export default function Home() {
                   ? account.lamports / web3.LAMPORTS_PER_SOL + ' SOL'
                   : 'Loading..'}
               </p>
-              <button
-                onClick={getAirdrop}
-                isLoading={airdropProcessing}
-                className="mt-24 rounded bg-blue-500 p-3 hover:bg-blue-600"
-              >
-                Get Airdrop of 1 SOL
-              </button>
-              <p className="font-bold text-red-500">
-                {error && 'Airdrop failed'}
-              </p>
+              {connection._rpcEndpoint !==
+                'https://api.mainnet-beta.solana.com/' && (
+                <>
+                  <button
+                    onClick={getAirdrop}
+                    isLoading={airdropProcessing}
+                    className="mt-24 rounded bg-blue-500 p-3 hover:bg-blue-600"
+                  >
+                    Get Airdrop of 1 SOL
+                  </button>
+                  <p className="font-bold text-red-500">
+                    {error && 'Airdrop failed'}
+                  </p>
+                </>
+              )}
+            </div>
+            <div className="text-left">
+              <h2 className="text-2xl font-bold">Tokens</h2>
+              {walletTokenList && (
+                <ul>
+                  {walletTokenList.map((v, i) => {
+                    return (
+                      returnToken(v.account.data.parsed.info.mint) && (
+                        <li key={'transaction-' + i}>
+                          <p>
+                            <strong>
+                              {returnToken(v.account.data.parsed.info.mint) &&
+                                returnToken(v.account.data.parsed.info.mint)
+                                  .symbol}{' '}
+                              :{' '}
+                            </strong>
+                            <a
+                              href={`https://solscan.io/token/${v.pubkey.toBase58()}`}
+                              target="_blank"
+                            >
+                              {
+                                v.account.data.parsed.info.tokenAmount
+                                  .uiAmountString
+                              }{' '}
+                              {returnToken(v.account.data.parsed.info.mint) && (
+                                <img
+                                  src={
+                                    returnToken(v.account.data.parsed.info.mint)
+                                      .logoURI
+                                  }
+                                  className="h-6"
+                                />
+                              )}
+                            </a>
+                          </p>
+                        </li>
+                      )
+                    )
+                  })}
+                </ul>
+              )}
             </div>
             <div className="text-left">
               <h2 className="text-2xl font-bold">Transactions</h2>
@@ -144,42 +178,6 @@ export default function Home() {
                       </p>
                     </li>
                   ))}
-                </ul>
-              )}
-            </div>
-            <div className="text-left">
-              <h2 className="text-2xl font-bold">Tokens</h2>
-              {walletTokenList && (
-                <ul>
-                  {walletTokenList.map((v, i) => {
-                    return (
-                      <li key={'transaction-' + i}>
-                        <p>
-                          <strong>
-                            {returnToken(v.account.data.parsed.info.mint) &&
-                              returnToken(v.account.data.parsed.info.mint)
-                                .symbol}{' '}
-                            :{' '}
-                          </strong>
-                          <a
-                            href={`https://solscan.io/token/${v.pubkey.toBase58()}`}
-                            target="_blank"
-                          >
-                            {
-                              v.account.data.parsed.info.tokenAmount
-                                .uiAmountString
-                            }{' '}
-                            {console.log(
-                              returnToken(v.account.data.parsed.info.mint)
-                            )}
-                            {returnToken(v.account.data.parsed.info.mint) &&
-                              returnToken(v.account.data.parsed.info.mint)
-                                .symbol}
-                          </a>
-                        </p>
-                      </li>
-                    )
-                  })}
                 </ul>
               )}
             </div>
