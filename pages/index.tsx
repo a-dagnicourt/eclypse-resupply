@@ -3,14 +3,21 @@ import * as web3 from '@solana/web3.js'
 import { useCallback, useEffect, useState } from 'react'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
+import axios from 'axios'
+import { getAllFleetsForUserPublicKey } from '@staratlas/factory'
+import { WalletNotConnectedError } from '@solana/wallet-adapter-base'
+
 import { getTokenList, returnToken } from '../utils/tokenList'
+import shipMints from '../utils/shipMints'
 
 function useSolanaAccount() {
   const [account, setAccount] = useState(null)
   const [transactions, setTransactions] = useState(null)
   const [walletTokenList, setWalletTokenList] = useState(null)
+  const [ships, setShips] = useState(null)
   const { connection } = useConnection()
   const { publicKey } = useWallet()
+  const SCORE_PROG_ID = 'FLEET1qqzpexyaDpqb2DGsSzE2sDCizewCg9WjrA6DBW'
 
   const init = useCallback(async () => {
     if (publicKey) {
@@ -20,7 +27,7 @@ function useSolanaAccount() {
       let transactions = await connection.getConfirmedSignaturesForAddress2(
         publicKey,
         {
-          limit: 10,
+          limit: 5,
         }
       )
       setTransactions(transactions)
@@ -34,6 +41,15 @@ function useSolanaAccount() {
         }
       )
       setWalletTokenList(walletTokenList.value)
+
+      let fleets = await getAllFleetsForUserPublicKey(
+        connection,
+        publicKey,
+        new web3.PublicKey(SCORE_PROG_ID)
+      )
+      console.log(fleets)
+      setShips(fleets)
+      console.log(ships)
     }
   }, [publicKey, connection])
 
@@ -45,13 +61,27 @@ function useSolanaAccount() {
     }
   }, [init, publicKey])
 
-  return { account, transactions, walletTokenList }
+  return { account, transactions, walletTokenList, ships }
+}
+
+const getUSDPrice = async (token: String) => {
+  await axios
+    .get(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${token}&vs_currencies=usd`
+    )
+    .then((res) => console.log(res.data))
+    .then((res) => {
+      return res
+    })
+    .catch((err) => {
+      console.log(err)
+    })
 }
 
 export default function Home() {
   const { connection } = useConnection()
   const { publicKey } = useWallet()
-  const { account, transactions, walletTokenList } = useSolanaAccount()
+  const { account, transactions, walletTokenList, ships } = useSolanaAccount()
 
   const [airdropProcessing, setAirdropProcessing] = useState(false)
   const [error, setError] = useState(false)
@@ -101,8 +131,10 @@ export default function Home() {
               <p>
                 <strong>Balance</strong> :{' '}
                 {account
-                  ? account.lamports / web3.LAMPORTS_PER_SOL + ' SOL'
-                  : 'Loading..'}
+                  ? account.lamports / web3.LAMPORTS_PER_SOL + ' SOL / '
+                  : // getUSDPrice('solana') +
+                    // ' USD'
+                    'Loading..'}
               </p>
               {connection._rpcEndpoint !==
                 'https://api.mainnet-beta.solana.com/' && (
@@ -127,7 +159,9 @@ export default function Home() {
                   {walletTokenList.map((v, i) => {
                     const token = returnToken(v.account.data.parsed.info.mint)
                     return (
-                      token && (
+                      token &&
+                      v.account.data.parsed.info.tokenAmount.uiAmountString >
+                        0 && (
                         <li key={'transaction-' + i}>
                           <div className="flex">
                             <div className="flex-1 truncate">
@@ -140,10 +174,10 @@ export default function Home() {
                             </div>
                             <span className="mx-3">:</span>
                             <div className="flex w-1/6 justify-between">
-                              {
+                              {parseFloat(
                                 v.account.data.parsed.info.tokenAmount
                                   .uiAmountString
-                              }
+                              ).toFixed(2)}
                               {token && (
                                 <img
                                   src={token.logoURI}
@@ -180,6 +214,21 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
+              )}
+            </div>
+
+            <div className="text-left">
+              <h2 className="mb-5 text-2xl font-bold">Flotte Star Atlas</h2>
+              {ships && (
+                <div className="my-8 flex space-x-8">
+                  {ships.map((ship) => {
+                    return (
+                      <div className="rounded bg-violet-400 p-3" >
+                        > {shipMints[ship.shipMint.toString()]}
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
           </div>
