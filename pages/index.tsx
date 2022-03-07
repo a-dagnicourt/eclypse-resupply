@@ -5,15 +5,17 @@ import { useConnection, useWallet } from '@solana/wallet-adapter-react'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import axios from 'axios'
 import { getAllFleetsForUserPublicKey } from '@staratlas/factory'
-import { WalletNotConnectedError } from '@solana/wallet-adapter-base'
 
 import { getTokenList, returnToken } from '../utils/tokenList'
-import shipMints from '../utils/shipMints'
+import Image from 'next/image'
+import { Disclosure, Transition } from '@headlessui/react'
+import { MdExpandMore } from 'react-icons/md'
 
 function useSolanaAccount() {
   const [account, setAccount] = useState(null)
   const [transactions, setTransactions] = useState(null)
   const [walletTokenList, setWalletTokenList] = useState(null)
+  const [shipsList, setShipsList] = useState([])
   const [ships, setShips] = useState(null)
   const { connection } = useConnection()
   const { publicKey } = useWallet()
@@ -47,41 +49,59 @@ function useSolanaAccount() {
         publicKey,
         new web3.PublicKey(SCORE_PROG_ID)
       )
-      console.log(fleets)
       setShips(fleets)
-      console.log(ships)
     }
   }, [publicKey, connection])
+
+  const getShipsList = async () => {
+    await axios
+      .get(`https://galaxy.staratlas.com/nfts/`)
+      .then((res) => setShipsList(res.data))
+      .catch((err) => {
+        console.log(err)
+      })
+  }
+
+  const getUSDPrice = async (token: String) => {
+    await axios
+      .get(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${token}&vs_currencies=usd`
+      )
+      .then((res) => res.data)
+      .catch((err) => {
+        console.log(err)
+      })
+  }
 
   useEffect(() => {
     if (publicKey) {
       getTokenList()
       init()
-      //   setInterval(init, 15000)
+      getShipsList()
     }
   }, [init, publicKey])
 
-  return { account, transactions, walletTokenList, ships }
-}
-
-const getUSDPrice = async (token: String) => {
-  await axios
-    .get(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${token}&vs_currencies=usd`
-    )
-    .then((res) => console.log(res.data))
-    .then((res) => {
-      return res
-    })
-    .catch((err) => {
-      console.log(err)
-    })
+  return {
+    account,
+    transactions,
+    walletTokenList,
+    ships,
+    getUSDPrice,
+    shipsList,
+  }
 }
 
 export default function Home() {
   const { connection } = useConnection()
   const { publicKey } = useWallet()
-  const { account, transactions, walletTokenList, ships } = useSolanaAccount()
+  const {
+    account,
+    transactions,
+    walletTokenList,
+    ships,
+    getUSDPrice,
+    shipsList,
+  } = useSolanaAccount()
 
   const [airdropProcessing, setAirdropProcessing] = useState(false)
   const [error, setError] = useState(false)
@@ -109,16 +129,16 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="flex w-full flex-1 flex-col items-center justify-center space-y-5 px-20 text-center">
-        <h1 className="mb-16 text-6xl font-bold">
+      <main className="flex max-w-6xl flex-1 flex-col items-center justify-center space-y-5 px-20 text-center">
+        <h1 className="m-16 text-6xl font-bold">
           Eclypse | Solana Wallet test page
         </h1>
-        <div>
+        <div className="absolute top-0 right-0 m-5">
           <WalletMultiButton />
         </div>
         {publicKey && (
-          <div className="max-w-4xl space-y-5 text-center">
-            <div>
+          <section className="flex w-full flex-1 flex-col space-y-5 text-center">
+            <div className="mb-16">
               <p>
                 <strong>Wallet Public Key</strong> :{' '}
                 <a
@@ -131,10 +151,10 @@ export default function Home() {
               <p>
                 <strong>Balance</strong> :{' '}
                 {account
-                  ? account.lamports / web3.LAMPORTS_PER_SOL + ' SOL / '
-                  : // getUSDPrice('solana') +
-                    // ' USD'
-                    'Loading..'}
+                  ? `${
+                      account.lamports / web3.LAMPORTS_PER_SOL
+                    } SOL / ${getUSDPrice('solana')} USD`
+                  : 'Loading..'}
               </p>
               {connection._rpcEndpoint !==
                 'https://api.mainnet-beta.solana.com/' && (
@@ -152,10 +172,14 @@ export default function Home() {
                 </>
               )}
             </div>
-            <div className="text-left">
-              <h2 className="mb-5 text-2xl font-bold">Tokens</h2>
+            <Disclosure>
+              <Disclosure.Button className="mb-5 w-full rounded bg-gray-800 p-2 text-left text-2xl font-bold hover:bg-gray-700">
+                <span className="flex place-items-center  justify-between">
+                  Tokens <MdExpandMore className="mx-3" />
+                </span>
+              </Disclosure.Button>
               {walletTokenList && (
-                <ul className="space-y-2">
+                <Disclosure.Panel as={'ul'} className="space-y-2 text-left">
                   {walletTokenList.map((v, i) => {
                     const token = returnToken(v.account.data.parsed.info.mint)
                     return (
@@ -192,14 +216,18 @@ export default function Home() {
                       )
                     )
                   })}
-                </ul>
+                </Disclosure.Panel>
               )}
-            </div>
+            </Disclosure>
 
-            <div className="text-left">
-              <h2 className="mb-5 text-2xl font-bold">Transactions</h2>
+            <Disclosure>
+              <Disclosure.Button className="mb-5 w-full rounded bg-gray-800 p-2 text-left text-2xl font-bold hover:bg-gray-700">
+                <span className="flex place-items-center  justify-between">
+                  Transactions <MdExpandMore className="mx-3" />
+                </span>
+              </Disclosure.Button>
               {transactions && (
-                <ul className="space-y-2">
+                <Disclosure.Panel as={'ul'} className="space-y-2 text-left">
                   {transactions.map((v, i) => (
                     <li key={'transaction-' + i}>
                       <p>
@@ -213,25 +241,39 @@ export default function Home() {
                       </p>
                     </li>
                   ))}
-                </ul>
+                </Disclosure.Panel>
               )}
-            </div>
+            </Disclosure>
 
-            <div className="text-left">
-              <h2 className="mb-5 text-2xl font-bold">Flotte Star Atlas</h2>
+            <Disclosure>
+              <Disclosure.Button className="mb-5 w-full rounded bg-gray-800 p-2 text-left text-2xl font-bold hover:bg-gray-700">
+                <span className="flex place-items-center  justify-between">
+                  Flotte Star Atlas <MdExpandMore className="mx-3" />
+                </span>
+              </Disclosure.Button>
               {ships && (
-                <div className="my-8 flex space-x-8">
+                <Disclosure.Panel className="my-8 flex space-x-8">
                   {ships.map((ship) => {
+                    const shipData = shipsList.filter(
+                      (e) => e.mint === ship.shipMint.toString()
+                    )
                     return (
-                      <div className="rounded bg-violet-400 p-3" >
-                        > {shipMints[ship.shipMint.toString()]}
+                      <div className="rounded bg-gray-700 p-3">
+                        <h3 className="font-bol2 mb-2 text-xl">
+                          {shipData[0].name}
+                        </h3>
+                        <Image
+                          src={shipData[0].image}
+                          width={250}
+                          height={140}
+                        />
                       </div>
                     )
                   })}
-                </div>
+                </Disclosure.Panel>
               )}
-            </div>
-          </div>
+            </Disclosure>
+          </section>
         )}
       </main>
     </div>
