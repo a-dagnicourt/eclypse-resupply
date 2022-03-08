@@ -17,6 +17,8 @@ function useSolanaAccount() {
   const [solUSDPrice, setSolUSDPrice] = useState(null)
   const [walletTokenList, setWalletTokenList] = useState(null)
   const [shipsList, setShipsList] = useState([])
+  const [fleet, setFleet] = useState(null)
+  const [fleetValue, setFleetValue] = useState(0)
   const [ships, setShips] = useState(null)
   const { connection } = useConnection()
   const { publicKey } = useWallet()
@@ -45,12 +47,12 @@ function useSolanaAccount() {
       )
       setWalletTokenList(walletTokenList.value)
 
-      let fleets = await getAllFleetsForUserPublicKey(
+      let allFleets = await getAllFleetsForUserPublicKey(
         connection,
         publicKey,
         new web3.PublicKey(SCORE_PROG_ID)
       )
-      setShips(fleets)
+      setFleet(allFleets)
     }
 
     let solUSD = await getUSDPrice('solana')
@@ -86,46 +88,50 @@ function useSolanaAccount() {
     }
   }, [init, publicKey])
 
+  useEffect(() => {
+    if (fleet) {
+      setShips(
+        fleet.map((ship) => {
+          const shipData = shipsList.filter(
+            (e) => e.mint === ship.shipMint.toString()
+          )
+          setFleetValue(fleetValue + shipData[0].tradeSettings.msrp.value)
+          return shipData
+        })
+      )
+    }
+  }, [fleet, shipsList])
+
+  useEffect(() => {
+    if (ships) {
+      setFleetValue(
+        ships
+          .map((ship) => ship[0].tradeSettings.msrp.value)
+          .reduce((prev, curr) => prev + curr, 0)
+      )
+    }
+  }, [ships])
+
   return {
     account,
     transactions,
+    solUSDPrice,
     walletTokenList,
     ships,
-    solUSDPrice,
-    shipsList,
+    fleetValue,
   }
 }
 
 export default function Home() {
-  const { connection } = useConnection()
   const { publicKey } = useWallet()
   const {
     account,
     transactions,
+    solUSDPrice,
     walletTokenList,
     ships,
-    solUSDPrice,
-    shipsList,
+    fleetValue,
   } = useSolanaAccount()
-
-  const [airdropProcessing, setAirdropProcessing] = useState(false)
-  const [error, setError] = useState(false)
-
-  const getAirdrop = useCallback(async () => {
-    setError(false)
-    setAirdropProcessing(true)
-    try {
-      var airdropSignature = await connection.requestAirdrop(
-        publicKey,
-        web3.LAMPORTS_PER_SOL
-      )
-      await connection.confirmTransaction(airdropSignature)
-    } catch (error) {
-      console.log(error)
-      setError(true)
-    }
-    setAirdropProcessing(false)
-  }, [])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black/90 py-2 text-gray-200">
@@ -164,21 +170,6 @@ export default function Home() {
                     ).toFixed(2)} SOL / ${solUSDPrice} USD`
                   : 'Loading..'}
               </p>
-              {connection._rpcEndpoint !==
-                'https://api.mainnet-beta.solana.com/' && (
-                <>
-                  <button
-                    onClick={getAirdrop}
-                    isLoading={airdropProcessing}
-                    className="mt-24 rounded bg-blue-500 p-3 hover:bg-blue-600"
-                  >
-                    Get Airdrop of 1 SOL
-                  </button>
-                  <p className="font-bold text-red-500">
-                    {error && 'Airdrop failed'}
-                  </p>
-                </>
-              )}
             </div>
             <Disclosure>
               <Disclosure.Button className="mb-5 w-full rounded bg-gray-800 p-2 text-left text-2xl font-bold hover:bg-gray-700">
@@ -268,24 +259,27 @@ export default function Home() {
                 </span>
               </Disclosure.Button>
               {ships && (
-                <Disclosure.Panel className="my-8 flex space-x-8 border-l-8 border-l-orange-600 pl-5">
-                  {ships.map((ship) => {
-                    const shipData = shipsList.filter(
-                      (e) => e.mint === ship.shipMint.toString()
-                    )
-                    return (
-                      <div className="rounded bg-gray-700 p-3">
-                        <h3 className="font-bol2 mb-2 text-xl">
-                          {shipData[0].name}
-                        </h3>
-                        <Image
-                          src={shipData[0].image}
-                          width={250}
-                          height={140}
-                        />
-                      </div>
-                    )
-                  })}
+                <Disclosure.Panel className="my-8 flex flex-col space-y-5 border-l-8 border-l-orange-600 pl-5 text-left">
+                  <h4 className="text-xl">
+                    <strong>Valeur totale VWAP</strong> : {fleetValue} USD
+                  </h4>
+                  <div className="flex space-x-8">
+                    {ships.map((ship) => {
+                      ship = ship[0]
+                      return (
+                        <div className="rounded bg-gray-700 p-3">
+                          <h3 className="font-bol2 mb-2 text-xl">
+                            {ship.name}
+                          </h3>
+                          <Image src={ship.image} width={250} height={140} />
+                          <p className="text-left text-gray-400">
+                            VWAP : {ship.tradeSettings.msrp.value}{' '}
+                            {ship.tradeSettings.msrp.currencySymbol}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </Disclosure.Panel>
               )}
             </Disclosure>
