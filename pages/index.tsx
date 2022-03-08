@@ -14,6 +14,7 @@ import { MdExpandMore } from 'react-icons/md'
 function useSolanaAccount() {
   const [account, setAccount] = useState(null)
   const [transactions, setTransactions] = useState(null)
+  const [solUSDPrice, setSolUSDPrice] = useState(null)
   const [walletTokenList, setWalletTokenList] = useState(null)
   const [shipsList, setShipsList] = useState([])
   const [ships, setShips] = useState(null)
@@ -51,6 +52,9 @@ function useSolanaAccount() {
       )
       setShips(fleets)
     }
+
+    let solUSD = await getUSDPrice('solana')
+    setSolUSDPrice(solUSD)
   }, [publicKey, connection])
 
   const getShipsList = async () => {
@@ -78,6 +82,7 @@ function useSolanaAccount() {
       getTokenList()
       init()
       getShipsList()
+      getUSDPrice('solana')
     }
   }, [init, publicKey])
 
@@ -86,7 +91,7 @@ function useSolanaAccount() {
     transactions,
     walletTokenList,
     ships,
-    getUSDPrice,
+    solUSDPrice,
     shipsList,
   }
 }
@@ -99,7 +104,7 @@ export default function Home() {
     transactions,
     walletTokenList,
     ships,
-    getUSDPrice,
+    solUSDPrice,
     shipsList,
   } = useSolanaAccount()
 
@@ -129,16 +134,19 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="flex max-w-6xl flex-1 flex-col items-center justify-center space-y-5 px-20 text-center">
-        <h1 className="m-16 text-6xl font-bold">
-          Eclypse | Solana Wallet test page
-        </h1>
+      <main className="flex max-w-6xl flex-1 flex-col items-center justify-center space-y-5 px-10 text-center">
         <div className="absolute top-0 right-0 m-5">
           <WalletMultiButton />
         </div>
+        <div className="m-12 flex place-items-center space-x-5">
+          <Image src="/images/logo_mobile.webp" width="137" height="97" />
+          <h1 className="border-l-8 border-l-orange-600 pl-5 text-5xl font-bold">
+            Solana Wallet test page
+          </h1>
+        </div>
         {publicKey && (
           <section className="flex w-full flex-1 flex-col space-y-5 text-center">
-            <div className="mb-16">
+            <div className="my-12 border-l-8 border-l-orange-600 pl-5 text-left">
               <p>
                 <strong>Wallet Public Key</strong> :{' '}
                 <a
@@ -151,9 +159,9 @@ export default function Home() {
               <p>
                 <strong>Balance</strong> :{' '}
                 {account
-                  ? `${
+                  ? `${parseFloat(
                       account.lamports / web3.LAMPORTS_PER_SOL
-                    } SOL / ${getUSDPrice('solana')} USD`
+                    ).toFixed(2)} SOL / ${solUSDPrice} USD`
                   : 'Loading..'}
               </p>
               {connection._rpcEndpoint !==
@@ -179,7 +187,10 @@ export default function Home() {
                 </span>
               </Disclosure.Button>
               {walletTokenList && (
-                <Disclosure.Panel as={'ul'} className="space-y-2 text-left">
+                <Disclosure.Panel
+                  as={'ul'}
+                  className="space-y-2 border-l-8 border-l-orange-600 pl-5 text-left"
+                >
                   {walletTokenList.map((v, i) => {
                     const token = returnToken(v.account.data.parsed.info.mint)
                     return (
@@ -192,24 +203,26 @@ export default function Home() {
                               <a
                                 href={`https://solscan.io/token/${token.address}`}
                                 target="_blank"
+                                className="flex space-x-3"
                               >
+                                {token && (
+                                  <img
+                                    src={token.logoURI}
+                                    className="ml-1 h-6 w-6 rounded-full"
+                                    alt={token.symbol}
+                                    title={token.symbol}
+                                  />
+                                )}
                                 <strong>{token && token.name}</strong>
                               </a>
                             </div>
                             <span className="mx-3">:</span>
-                            <div className="flex w-1/6 justify-between">
+                            <div className="flex w-1/4 justify-between">
                               {parseFloat(
                                 v.account.data.parsed.info.tokenAmount
                                   .uiAmountString
-                              ).toFixed(2)}
-                              {token && (
-                                <img
-                                  src={token.logoURI}
-                                  className="ml-1 h-6 rounded-full"
-                                  alt={token.symbol}
-                                  title={token.symbol}
-                                />
-                              )}
+                              ).toFixed(2)}{' '}
+                              {token && token.symbol}
                             </div>
                           </div>
                         </li>
@@ -223,20 +236,23 @@ export default function Home() {
             <Disclosure>
               <Disclosure.Button className="mb-5 w-full rounded bg-gray-800 p-2 text-left text-2xl font-bold hover:bg-gray-700">
                 <span className="flex place-items-center  justify-between">
-                  Transactions <MdExpandMore className="mx-3" />
+                  Dernières transactions <MdExpandMore className="mx-3" />
                 </span>
               </Disclosure.Button>
               {transactions && (
-                <Disclosure.Panel as={'ul'} className="space-y-2 text-left">
-                  {transactions.map((v, i) => (
+                <Disclosure.Panel
+                  as={'ul'}
+                  className="space-y-2 border-l-8 border-l-orange-600 pl-5 text-left"
+                >
+                  {transactions.map((transaction, i) => (
                     <li key={'transaction-' + i}>
                       <p>
-                        <strong>Signature : </strong>
+                        <strong>{i + 1} : </strong>
                         <a
-                          href={`https://solscan.io/tx/${v.signature}`}
+                          href={`https://solscan.io/tx/${transaction.signature}`}
                           target="_blank"
                         >
-                          {v.signature}
+                          {transaction.signature}
                         </a>
                       </p>
                     </li>
@@ -252,7 +268,7 @@ export default function Home() {
                 </span>
               </Disclosure.Button>
               {ships && (
-                <Disclosure.Panel className="my-8 flex space-x-8">
+                <Disclosure.Panel className="my-8 flex space-x-8 border-l-8 border-l-orange-600 pl-5">
                   {ships.map((ship) => {
                     const shipData = shipsList.filter(
                       (e) => e.mint === ship.shipMint.toString()
