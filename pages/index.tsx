@@ -8,13 +8,13 @@ import { getAllFleetsForUserPublicKey } from '@staratlas/factory'
 
 import { getTokenList, returnToken } from '../utils/tokenList'
 import Image from 'next/image'
-import { Disclosure, Transition } from '@headlessui/react'
+import { Disclosure } from '@headlessui/react'
 import { MdExpandMore } from 'react-icons/md'
 
 function useSolanaAccount() {
   const [account, setAccount] = useState(null)
   const [transactions, setTransactions] = useState(null)
-  const [solUSDPrice, setSolUSDPrice] = useState(null)
+  const [USDPrice, setUSDPrice] = useState(null)
   const [walletTokenList, setWalletTokenList] = useState(null)
   const [shipsList, setShipsList] = useState([])
   const [fleet, setFleet] = useState(null)
@@ -26,8 +26,8 @@ function useSolanaAccount() {
 
   const init = useCallback(async () => {
     if (publicKey) {
-      let acc = await connection.getAccountInfo(publicKey)
-      setAccount(acc)
+      let account = await connection.getAccountInfo(publicKey)
+      setAccount(account)
 
       let transactions = await connection.getConfirmedSignaturesForAddress2(
         publicKey,
@@ -54,9 +54,6 @@ function useSolanaAccount() {
       )
       setFleet(allFleets)
     }
-
-    let solUSD = await getUSDPrice('solana')
-    setSolUSDPrice(solUSD)
   }, [publicKey, connection])
 
   const getShipsList = async () => {
@@ -73,7 +70,7 @@ function useSolanaAccount() {
       .get(
         `https://api.coingecko.com/api/v3/simple/price?ids=${token}&vs_currencies=usd`
       )
-      .then((res) => res.data)
+      .then((res) => setUSDPrice(res.data[token].usd))
       .catch((err) => {
         console.log(err)
       })
@@ -95,7 +92,6 @@ function useSolanaAccount() {
           const shipData = shipsList.filter(
             (e) => e.mint === ship.shipMint.toString()
           )
-          setFleetValue(fleetValue + shipData[0].tradeSettings.msrp.value)
           return shipData
         })
       )
@@ -115,9 +111,10 @@ function useSolanaAccount() {
   return {
     account,
     transactions,
-    solUSDPrice,
+    USDPrice,
     walletTokenList,
     ships,
+    fleet,
     fleetValue,
   }
 }
@@ -127,11 +124,17 @@ export default function Home() {
   const {
     account,
     transactions,
-    solUSDPrice,
+    USDPrice,
     walletTokenList,
     ships,
+    fleet,
     fleetValue,
   } = useSolanaAccount()
+  const solBalance =
+    account && parseFloat(account.lamports / web3.LAMPORTS_PER_SOL).toFixed(2)
+  const tokens =
+    walletTokenList &&
+    walletTokenList.map((token) => token.account.data.parsed.info)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black/90 py-2 text-gray-200">
@@ -165,9 +168,9 @@ export default function Home() {
               <p>
                 <strong>Balance</strong> :{' '}
                 {account
-                  ? `${parseFloat(
-                      account.lamports / web3.LAMPORTS_PER_SOL
-                    ).toFixed(2)} SOL / ${solUSDPrice} USD`
+                  ? `${solBalance} SOL / ${(USDPrice * solBalance).toFixed(
+                      2
+                    )} USD`
                   : 'Loading..'}
               </p>
             </div>
@@ -182,12 +185,12 @@ export default function Home() {
                   as={'ul'}
                   className="space-y-2 border-l-8 border-l-orange-600 pl-5 text-left"
                 >
-                  {walletTokenList.map((v, i) => {
-                    const token = returnToken(v.account.data.parsed.info.mint)
+                  {tokens.map((item, i) => {
+                    const token = returnToken(item.mint)
+                    const tokenAmount = item.tokenAmount.uiAmountString
                     return (
                       token &&
-                      v.account.data.parsed.info.tokenAmount.uiAmountString >
-                        0 && (
+                      tokenAmount > 0 && (
                         <li key={'transaction-' + i}>
                           <div className="flex">
                             <div className="flex-1 truncate">
@@ -209,10 +212,7 @@ export default function Home() {
                             </div>
                             <span className="mx-3">:</span>
                             <div className="flex w-1/4 justify-between">
-                              {parseFloat(
-                                v.account.data.parsed.info.tokenAmount
-                                  .uiAmountString
-                              ).toFixed(2)}{' '}
+                              {parseFloat(tokenAmount).toFixed(2)}{' '}
                               {token && token.symbol}
                             </div>
                           </div>
