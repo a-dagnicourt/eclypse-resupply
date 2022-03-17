@@ -103,18 +103,23 @@ function useSolanaAccount() {
     USDPrice,
     fleet,
     fleetValue,
+    getUSDPrice,
   }
 }
 export default function Home() {
   const { publicKey } = useWallet()
-  const { account, transactions, tokens, USDPrice, fleet, fleetValue } =
-    useSolanaAccount()
+  const {
+    account,
+    transactions,
+    tokens,
+    USDPrice,
+    fleet,
+    fleetValue,
+    getUSDPrice,
+  } = useSolanaAccount()
 
   const solBalance =
     account && parseFloat(account.lamports / web3.LAMPORTS_PER_SOL).toFixed(2)
-
-  console.log(tokens)
-  console.log(fleet)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black/90 py-2 text-gray-200">
@@ -195,6 +200,17 @@ export default function Home() {
                                 {parseFloat(tokenAmount).toFixed(2)}{' '}
                                 {token && token.symbol}
                               </div>
+                              <button
+                                className="rounded-full bg-orange-600 p-2  hover:bg-orange-500"
+                                onClick={async () => {
+                                  console.log(token.extensions.coingeckoId)
+                                  await getUSDPrice(
+                                    token.extensions.coingeckoId
+                                  )
+                                }}
+                              >
+                                Get USD Price / {USDPrice}
+                              </button>
                             </div>
                           </li>
                         )
