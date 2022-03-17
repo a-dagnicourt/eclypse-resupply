@@ -13,46 +13,57 @@ import { MdExpandMore } from 'react-icons/md'
 
 function useSolanaAccount() {
   const [account, setAccount] = useState(null)
+  const { connection } = useConnection()
+  const { publicKey } = useWallet()
+
   const [transactions, setTransactions] = useState(null)
   const [USDPrice, setUSDPrice] = useState(null)
-  const [walletTokenList, setWalletTokenList] = useState(null)
+  const [tokens, setTokens] = useState(null)
+
   const [shipsList, setShipsList] = useState([])
   const [fleet, setFleet] = useState(null)
   const [fleetValue, setFleetValue] = useState(0)
-  const [ships, setShips] = useState(null)
-  const { connection } = useConnection()
-  const { publicKey } = useWallet()
   const SCORE_PROG_ID = 'FLEET1qqzpexyaDpqb2DGsSzE2sDCizewCg9WjrA6DBW'
 
   const init = useCallback(async () => {
     if (publicKey) {
-      let account = await connection.getAccountInfo(publicKey)
-      setAccount(account)
+      await connection.getAccountInfo(publicKey).then((account) => {
+        setAccount(account)
+      })
 
-      let transactions = await connection.getConfirmedSignaturesForAddress2(
-        publicKey,
-        {
+      await connection
+        .getConfirmedSignaturesForAddress2(publicKey, {
           limit: 5,
-        }
-      )
-      setTransactions(transactions)
+        })
+        .then((transactions) => {
+          setTransactions(transactions)
+        })
 
-      let walletTokenList = await connection.getParsedTokenAccountsByOwner(
-        publicKey,
-        {
+      await connection
+        .getParsedTokenAccountsByOwner(publicKey, {
           programId: new web3.PublicKey(
             'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
           ),
-        }
-      )
-      setWalletTokenList(walletTokenList.value)
+        })
+        .then((tokens) => {
+          setTokens(tokens.value.map((token) => token.account.data.parsed.info))
+        })
 
-      let allFleets = await getAllFleetsForUserPublicKey(
+      await getAllFleetsForUserPublicKey(
         connection,
         publicKey,
         new web3.PublicKey(SCORE_PROG_ID)
-      )
-      setFleet(allFleets)
+      ).then((fleet) => {
+        const fleetData = fleet.map((ship) => {
+          return shipsList.filter((e) => e.mint === ship.shipMint.toString())
+        })
+        setFleet(fleetData)
+        setFleetValue(
+          fleetData
+            .map((ship) => ship[0].tradeSettings.msrp.value)
+            .reduce((prev, curr) => prev + curr, 0)
+        )
+      })
     }
   }, [publicKey, connection])
 
@@ -77,64 +88,33 @@ function useSolanaAccount() {
   }
 
   useEffect(() => {
+    getTokenList()
+    getShipsList()
+    getUSDPrice('solana')
     if (publicKey) {
-      getTokenList()
       init()
-      getShipsList()
-      getUSDPrice('solana')
     }
   }, [init, publicKey])
-
-  useEffect(() => {
-    if (fleet) {
-      setShips(
-        fleet.map((ship) => {
-          const shipData = shipsList.filter(
-            (e) => e.mint === ship.shipMint.toString()
-          )
-          return shipData
-        })
-      )
-    }
-  }, [fleet, shipsList])
-
-  useEffect(() => {
-    if (ships) {
-      setFleetValue(
-        ships
-          .map((ship) => ship[0].tradeSettings.msrp.value)
-          .reduce((prev, curr) => prev + curr, 0)
-      )
-    }
-  }, [ships])
 
   return {
     account,
     transactions,
+    tokens,
     USDPrice,
-    walletTokenList,
-    ships,
     fleet,
     fleetValue,
   }
 }
-
 export default function Home() {
   const { publicKey } = useWallet()
-  const {
-    account,
-    transactions,
-    USDPrice,
-    walletTokenList,
-    ships,
-    fleet,
-    fleetValue,
-  } = useSolanaAccount()
+  const { account, transactions, tokens, USDPrice, fleet, fleetValue } =
+    useSolanaAccount()
+
   const solBalance =
     account && parseFloat(account.lamports / web3.LAMPORTS_PER_SOL).toFixed(2)
-  const tokens =
-    walletTokenList &&
-    walletTokenList.map((token) => token.account.data.parsed.info)
+
+  console.log(tokens)
+  console.log(fleet)
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-black/90 py-2 text-gray-200">
@@ -180,49 +160,48 @@ export default function Home() {
                   Tokens <MdExpandMore className="mx-3" />
                 </span>
               </Disclosure.Button>
-              {walletTokenList && (
-                <Disclosure.Panel
-                  as={'ul'}
-                  className="space-y-2 border-l-8 border-l-orange-600 pl-5 text-left"
-                >
-                  {tokens.map((item, i) => {
-                    const token = returnToken(item.mint)
-                    const tokenAmount = avoidDust(item, '4')
-
-                    return (
-                      token &&
-                      tokenAmount > 0 && (
-                        <li key={'transaction-' + i}>
-                          <div className="flex">
-                            <div className="flex-1 truncate">
-                              <a
-                                href={`https://solscan.io/token/${token.address}`}
-                                target="_blank"
-                                className="flex space-x-3"
-                              >
-                                {token && (
-                                  <img
-                                    src={token.logoURI}
-                                    className="ml-1 h-6 w-6 rounded-full"
-                                    alt={token.symbol}
-                                    title={token.symbol}
-                                  />
-                                )}
-                                <strong>{token && token.name}</strong>
-                              </a>
+              <Disclosure.Panel
+                as={'ul'}
+                className="space-y-2 border-l-8 border-l-orange-600 pl-5 text-left"
+              >
+                {tokens
+                  ? tokens.map((item, i) => {
+                      const token = returnToken(item.mint)
+                      const tokenAmount = avoidDust(item, '4')
+                      return (
+                        token &&
+                        tokenAmount > 0 && (
+                          <li key={'transaction-' + i}>
+                            <div className="flex">
+                              <div className="flex-1 truncate">
+                                <a
+                                  href={`https://solscan.io/token/${token.address}`}
+                                  target="_blank"
+                                  className="flex space-x-3"
+                                >
+                                  {token && (
+                                    <img
+                                      src={token.logoURI}
+                                      className="ml-1 h-6 w-6 rounded-full"
+                                      alt={token.symbol}
+                                      title={token.symbol}
+                                    />
+                                  )}
+                                  <strong>{token && token.name}</strong>
+                                </a>
+                              </div>
+                              <span className="mx-3">:</span>
+                              <div className="flex w-1/4 justify-between">
+                                {parseFloat(tokenAmount).toFixed(2)}{' '}
+                                {token && token.symbol}
+                              </div>
                             </div>
-                            <span className="mx-3">:</span>
-                            <div className="flex w-1/4 justify-between">
-                              {parseFloat(tokenAmount).toFixed(2)}{' '}
-                              {token && token.symbol}
-                            </div>
-                          </div>
-                        </li>
+                          </li>
+                        )
                       )
-                    )
-                  })}
-                </Disclosure.Panel>
-              )}
+                    })
+                  : 'Loading...'}
+              </Disclosure.Panel>
             </Disclosure>
 
             <Disclosure>
@@ -231,59 +210,63 @@ export default function Home() {
                   Dernières transactions <MdExpandMore className="mx-3" />
                 </span>
               </Disclosure.Button>
-              {transactions && (
-                <Disclosure.Panel
-                  as={'ul'}
-                  className="space-y-2 border-l-8 border-l-orange-600 pl-5 text-left"
-                >
-                  {transactions.map((transaction, i) => (
-                    <li key={'transaction-' + i}>
-                      <p>
-                        <strong>{i + 1} : </strong>
-                        <a
-                          href={`https://solscan.io/tx/${transaction.signature}`}
-                          target="_blank"
-                        >
-                          {transaction.signature}
-                        </a>
-                      </p>
-                    </li>
-                  ))}
-                </Disclosure.Panel>
-              )}
+              <Disclosure.Panel
+                as={'ul'}
+                className="space-y-2 border-l-8 border-l-orange-600 pl-5 text-left"
+              >
+                {transactions
+                  ? transactions.map((transaction, i) => (
+                      <li key={'transaction-' + i}>
+                        <p>
+                          <strong>{i + 1} : </strong>
+                          <a
+                            href={`https://solscan.io/tx/${transaction.signature}`}
+                            target="_blank"
+                          >
+                            {transaction.signature}
+                          </a>
+                        </p>
+                      </li>
+                    ))
+                  : 'Loading...'}
+              </Disclosure.Panel>
             </Disclosure>
 
-            {ships && ships.length > 0 && (
-              <Disclosure>
-                <Disclosure.Button className="mb-5 w-full rounded bg-gray-800 p-2 text-left text-2xl font-bold hover:bg-gray-700">
-                  <span className="flex place-items-center  justify-between">
-                    Flotte Star Atlas <MdExpandMore className="mx-3" />
-                  </span>
-                </Disclosure.Button>
-                <Disclosure.Panel className="my-8 flex flex-col space-y-5 border-l-8 border-l-orange-600 pl-5 text-left">
-                  <h4 className="text-xl">
-                    <strong>Valeur totale VWAP</strong> : {fleetValue} USD
-                  </h4>
-                  <div className="flex space-x-8">
-                    {ships.map((ship) => {
-                      ship = ship[0]
-                      return (
-                        <div className="rounded bg-gray-700 p-3">
-                          <h3 className="font-bol2 mb-2 text-xl">
-                            {ship.name}
-                          </h3>
-                          <Image src={ship.image} width={250} height={140} />
-                          <p className="text-left text-gray-400">
-                            VWAP : {ship.tradeSettings.msrp.value}{' '}
-                            {ship.tradeSettings.msrp.currencySymbol}
-                          </p>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </Disclosure.Panel>
-              </Disclosure>
-            )}
+            <Disclosure>
+              <Disclosure.Button className="mb-5 w-full rounded bg-gray-800 p-2 text-left text-2xl font-bold hover:bg-gray-700">
+                <span className="flex place-items-center  justify-between">
+                  Flotte Star Atlas <MdExpandMore className="mx-3" />
+                </span>
+              </Disclosure.Button>
+              <Disclosure.Panel className="my-8 flex flex-col space-y-5 border-l-8 border-l-orange-600 pl-5 text-left">
+                {fleet && fleet.length > 0 ? (
+                  <>
+                    <h4 className="text-xl">
+                      <strong>Valeur totale VWAP</strong> : {fleetValue} USD
+                    </h4>
+                    <div className="flex space-x-8">
+                      {fleet.map((ship) => {
+                        ship = ship[0]
+                        return (
+                          <div className="rounded bg-gray-700 p-3">
+                            <h3 className="mb-2 text-xl font-bold">
+                              {ship.name}
+                            </h3>
+                            <Image src={ship.image} width={250} height={140} />
+                            <p className="text-left text-gray-400">
+                              VWAP : {ship.tradeSettings.msrp.value}{' '}
+                              {ship.tradeSettings.msrp.currencySymbol}
+                            </p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  'Loading...'
+                )}
+              </Disclosure.Panel>
+            </Disclosure>
           </section>
         )}
       </main>

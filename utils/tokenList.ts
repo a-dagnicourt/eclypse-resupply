@@ -28,7 +28,6 @@ export function avoidDust(item, decimals){
     for (let index = 0; index < decimals; index++) {
         fucksGiven += "0"        
     }
-    console.log(fucksGiven)
   return item.tokenAmount.uiAmountString > `0.${fucksGiven}1`
   ? item.tokenAmount.uiAmountString
   : null
