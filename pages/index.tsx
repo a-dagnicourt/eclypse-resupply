@@ -6,7 +6,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
 import axios from 'axios'
 import { getAllFleetsForUserPublicKey } from '@staratlas/factory'
 
-import { getTokenList, returnToken } from '../utils/tokenList'
+import { avoidDust, getTokenList, returnToken } from '../utils/tokenList'
 import Image from 'next/image'
 import { Disclosure } from '@headlessui/react'
 import { MdExpandMore } from 'react-icons/md'
@@ -187,7 +187,8 @@ export default function Home() {
                 >
                   {tokens.map((item, i) => {
                     const token = returnToken(item.mint)
-                    const tokenAmount = item.tokenAmount.uiAmountString
+                    const tokenAmount = avoidDust(item, '4')
+
                     return (
                       token &&
                       tokenAmount > 0 && (
@@ -252,13 +253,13 @@ export default function Home() {
               )}
             </Disclosure>
 
-            <Disclosure>
-              <Disclosure.Button className="mb-5 w-full rounded bg-gray-800 p-2 text-left text-2xl font-bold hover:bg-gray-700">
-                <span className="flex place-items-center  justify-between">
-                  Flotte Star Atlas <MdExpandMore className="mx-3" />
-                </span>
-              </Disclosure.Button>
-              {ships && (
+            {ships && ships.length > 0 && (
+              <Disclosure>
+                <Disclosure.Button className="mb-5 w-full rounded bg-gray-800 p-2 text-left text-2xl font-bold hover:bg-gray-700">
+                  <span className="flex place-items-center  justify-between">
+                    Flotte Star Atlas <MdExpandMore className="mx-3" />
+                  </span>
+                </Disclosure.Button>
                 <Disclosure.Panel className="my-8 flex flex-col space-y-5 border-l-8 border-l-orange-600 pl-5 text-left">
                   <h4 className="text-xl">
                     <strong>Valeur totale VWAP</strong> : {fleetValue} USD
@@ -281,8 +282,8 @@ export default function Home() {
                     })}
                   </div>
                 </Disclosure.Panel>
-              )}
-            </Disclosure>
+              </Disclosure>
+            )}
           </section>
         )}
       </main>
