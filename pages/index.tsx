@@ -10,6 +10,8 @@ import { avoidDust, getTokenList, returnToken } from '../utils/tokenList'
 import Image from 'next/image'
 import { Disclosure } from '@headlessui/react'
 import { MdExpandMore } from 'react-icons/md'
+import { Async, useAsync } from 'react-async'
+import { token } from '@project-serum/anchor/dist/cjs/utils'
 
 function useSolanaAccount() {
   const [account, setAccount] = useState(null)
@@ -76,17 +78,6 @@ function useSolanaAccount() {
       })
   }
 
-  const getUSDPrice = async (token: String) => {
-    await axios
-      .get(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${token}&vs_currencies=usd`
-      )
-      .then((res) => setUSDPrice(res.data[token].usd))
-      .catch((err) => {
-        console.log(err)
-      })
-  }
-
   useEffect(() => {
     getTokenList()
     getShipsList()
@@ -106,6 +97,28 @@ function useSolanaAccount() {
     getUSDPrice,
   }
 }
+
+// const getUSDPrice = async (token: String) => {
+//   await axios
+//     .get(
+//       `https://api.coingecko.com/api/v3/simple/price?ids=${token}&vs_currencies=usd`
+//     )
+//     .then((res) => {
+//       res.data
+//     })
+//     .catch((err) => {
+//       console.log(err)
+//     })
+// }
+
+const getUSDPrice = async ({ token }) => {
+  const response = await fetch(
+    `https://api.coingecko.com/api/v3/simple/price?ids=${token}&vs_currencies=usd`
+  )
+  if (!response.ok) throw new Error(response.statusText)
+  return response.json()
+}
+
 export default function Home() {
   const { publicKey } = useWallet()
   const {
@@ -152,11 +165,24 @@ export default function Home() {
               </p>
               <p>
                 <strong>Balance</strong> :{' '}
-                {account
-                  ? `${solBalance} SOL / ${(USDPrice * solBalance).toFixed(
-                      2
-                    )} USD`
-                  : 'Loading..'}
+                {account ? (
+                  <span>
+                    {solBalance} SOL{' '}
+                    <Async promiseFn={getUSDPrice} token={'solana'}>
+                      <Async.Pending>??</Async.Pending>
+                      <Async.Rejected>--</Async.Rejected>
+                      <Async.Fulfilled>
+                        {(data) =>
+                          `(${(data['solana'].usd * solBalance).toFixed(
+                            2
+                          )} USD)`
+                        }
+                      </Async.Fulfilled>
+                    </Async>
+                  </span>
+                ) : (
+                  'Loading..'
+                )}
               </p>
             </div>
             <Disclosure>
@@ -199,18 +225,24 @@ export default function Home() {
                               <div className="flex w-1/4 justify-between">
                                 {parseFloat(tokenAmount).toFixed(2)}{' '}
                                 {token && token.symbol}
+                                {token.extensions && (
+                                  <Async
+                                    promiseFn={getUSDPrice}
+                                    token={token.extensions.coingeckoId}
+                                  >
+                                    <Async.Pending>??</Async.Pending>
+                                    <Async.Rejected>--</Async.Rejected>
+                                    <Async.Fulfilled>
+                                      {(data) =>
+                                        ` (${(
+                                          data[token.extensions.coingeckoId]
+                                            .usd * tokenAmount
+                                        ).toFixed(2)} USD)`
+                                      }
+                                    </Async.Fulfilled>
+                                  </Async>
+                                )}
                               </div>
-                              <button
-                                className="rounded-full bg-orange-600 p-2  hover:bg-orange-500"
-                                onClick={async () => {
-                                  console.log(token.extensions.coingeckoId)
-                                  await getUSDPrice(
-                                    token.extensions.coingeckoId
-                                  )
-                                }}
-                              >
-                                Get USD Price / {USDPrice}
-                              </button>
                             </div>
                           </li>
                         )
