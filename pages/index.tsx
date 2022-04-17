@@ -234,6 +234,7 @@ export default function Home() {
                                     <Async.Rejected>--</Async.Rejected>
                                     <Async.Fulfilled>
                                       {(data) =>
+                                        data[token.extensions.coingeckoId] &&
                                         ` (${(
                                           data[token.extensions.coingeckoId]
                                             .usd * tokenAmount
